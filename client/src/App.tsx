@@ -77,6 +77,7 @@ export default function App() {
                 <Route path="/list" element={<QuizList />} />
                 <Route path="/result/:id" element={<Result />} />
                 <Route path="/explore" element={<Explore />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </main>
 
