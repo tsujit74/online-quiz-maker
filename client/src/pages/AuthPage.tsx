@@ -1,157 +1,160 @@
-import { useState } from "react";
-import { motion } from "framer-motion";
+import { useState, useContext } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { useApi } from "../api/api"; // with error handling
-import { useError } from "../context/ErrorContext";
+import { AuthContext } from "../context/authContext";
+import { useApi } from "../api/api";
+import { Mail, Lock, User, RefreshCw } from 'lucide-react';
+import { useSuccess } from "../context/SuccessContext";
 
-// Main AuthPage component with a professional white theme and loading spinner
+interface FormState {
+  name: string;
+  email: string;
+  password: string;
+}
+
 export default function AuthPage() {
-  // State to toggle between login and sign up forms
   const [isLogin, setIsLogin] = useState(true);
-  // State for form data
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
-  // State to manage the loading state for the submit button
+  const [form, setForm] = useState<FormState>({ name: "", email: "", password: "" });
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<{ [key: string]: string | null }>({});
 
-  // Hooks from the provided code
-  const { errors } = useError();
+  const { login } = useContext(AuthContext);
   const api = useApi();
   const navigate = useNavigate();
+  const { addMessage } = useSuccess();
 
-  // Handle input changes
-  const handleChange = (e: { target: { name: any; value: any } }) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: value }));
+
+    // Live validation
+    if (name === 'email') {
+      setErrors(prev => ({ ...prev, email: value && !emailRegex.test(value) ? 'Invalid email address' : null }));
+    }
+    if (name === 'password') {
+      setErrors(prev => ({ ...prev, password: value && value.length < 6 ? 'Password must be at least 6 characters' : null }));
+    }
+    if (name === 'name') {
+      setErrors(prev => ({ ...prev, name: !value && !isLogin ? 'Name is required' : null }));
+    }
   };
 
-  // Basic form validation
-  const validate = () => {
-    if (!form.email.trim() || !form.password.trim()) return false;
-    if (!isLogin && !form.name.trim()) return false;
-    return true;
+  const validateForm = (): boolean => {
+    const newErrors: { [key: string]: string } = {};
+    if (!form.email.trim() || !emailRegex.test(form.email)) newErrors.email = 'Invalid email address';
+    if (!form.password.trim() || form.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
+    if (!isLogin && !form.name.trim()) newErrors.name = 'Full name is required';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
-  // Handle form submission
-  const handleSubmit = async (e: { preventDefault: () => void; }) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate()) return;
+    if (!validateForm()) return;
 
     setLoading(true);
-
     try {
       const endpoint = isLogin ? "/auth/login" : "/auth/register";
       const res = await api.post(endpoint, form);
 
-      if (endpoint === "/auth/register") {
+      if (isLogin) {
+        const { token, user } = res.data;
+        if (token && user) {
+          login(token, user);
+          addMessage("Login successful!");
+          navigate("/");
+        } else {
+          setErrors({ email: "Login failed. Check your credentials." });
+        }
+      } else {
+        addMessage("Account created successfully! Please login.");
         setIsLogin(true);
         setForm({ name: "", email: "", password: "" });
-      } else {
-        localStorage.setItem("token", res.data.token);
-        navigate("/");
+        setErrors({});
       }
-    } catch (error) {
-      console.error("Auth error", error);
+    } catch (err: any) {
+      setErrors({ email: err.response?.data?.message || "Something went wrong." });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    // Main container with a light gray background
-    <div className="min-h-screen flex items-center justify-center p-2 bg-gray-100 text-gray-800">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
       <motion.div
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="bg-white shadow-xl rounded-2xl w-full max-w-md p-8 border border-gray-200"
+        transition={{ duration: 0.6, type: 'spring', damping: 10, stiffness: 100 }}
+        className="bg-white shadow-2xl rounded-3xl p-10 w-full max-w-md border border-gray-200"
       >
-        <h2 className="text-3xl font-extrabold text-center mb-6 text-gray-900">
-          {isLogin ? "Login" : "Sign Up"}
+        <h2 className="text-4xl font-extrabold text-center mb-8 text-gray-900">
+          {isLogin ? "Welcome Back" : "Join Us"}
         </h2>
 
-        {/* Error Display */}
-        {errors.length > 0 && (
-          <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-xl border border-red-200">
-            {errors.map((err, i) => (
-              <p key={i}>{err}</p>
-            ))}
-          </div>
-        )}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <AnimatePresence mode="wait">
+            {!isLogin && (
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.3 }}>
+                <div className="relative">
+                  <User size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    name="name"
+                    placeholder="Full Name"
+                    value={form.name}
+                    onChange={handleChange}
+                    className={`w-full p-3 pl-10 bg-gray-50 text-gray-900 rounded-xl placeholder-gray-500 border ${errors.name ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all`}
+                  />
+                  {errors.name && <p className="text-red-600 text-xs mt-1">{errors.name}</p>}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {!isLogin && (
+          <div className="relative">
+            <Mail size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
-              type="text"
-              name="name"
-              placeholder="Full Name"
-              value={form.name}
+              type="email"
+              name="email"
+              placeholder="Email Address"
+              value={form.email}
               onChange={handleChange}
-              className="w-full border-b border-gray-300 bg-transparent p-3 placeholder-gray-500 focus:outline-none focus:border-blue-400 transition-colors"
+              className={`w-full p-3 pl-10 bg-gray-50 text-gray-900 rounded-xl placeholder-gray-500 border ${errors.email ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all`}
             />
-          )}
+            {errors.email && <p className="text-red-600 text-xs mt-1">{errors.email}</p>}
+          </div>
 
-          <input
-            type="email"
-            name="email"
-            placeholder="Email Address"
-            value={form.email}
-            onChange={handleChange}
-            className="w-full border-b border-gray-300 bg-transparent p-3 placeholder-gray-500 focus:outline-none focus:border-blue-400 transition-colors"
-          />
-
-          <input
-            type="password"
-            name="password"
-            placeholder="Password"
-            value={form.password}
-            onChange={handleChange}
-            className="w-full border-b border-gray-300 bg-transparent p-3 placeholder-gray-500 focus:outline-none focus:border-blue-400 transition-colors"
-          />
+          <div className="relative">
+            <Lock size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="password"
+              name="password"
+              placeholder="Password"
+              value={form.password}
+              onChange={handleChange}
+              className={`w-full p-3 pl-10 bg-gray-50 text-gray-900 rounded-xl placeholder-gray-500 border ${errors.password ? 'border-red-500' : 'border-gray-200'} focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all`}
+            />
+            {errors.password && <p className="text-red-600 text-xs mt-1">{errors.password}</p>}
+          </div>
 
           <motion.button
             type="submit"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            className="w-full bg-blue-600 text-white font-semibold py-3 rounded-xl hover:bg-blue-700 transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
             disabled={loading}
+            className="w-full py-4 bg-indigo-600 text-white font-semibold text-lg rounded-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center"
           >
-            {loading ? (
-              // Spinner animation for the button
-              <motion.svg
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                className="h-5 w-5 text-white"
-                fill="none"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </motion.svg>
-            ) : // Button text
-            isLogin ? (
-              "Login"
-            ) : (
-              "Create Account"
-            )}
+            {loading ? <RefreshCw size={24} className="animate-spin" /> : isLogin ? "Login" : "Create Account"}
           </motion.button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-gray-500">
+        <p className="mt-8 text-center text-gray-500">
           {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
           <button
-            onClick={() => setIsLogin(!isLogin)}
-            className="text-blue-600 hover:text-blue-500 font-medium transition-colors"
+            onClick={() => { setIsLogin(!isLogin); setForm({ name: "", email: "", password: "" }); setErrors({}); }}
+            className="text-indigo-600 font-medium hover:text-indigo-500 transition-colors"
           >
             {isLogin ? "Sign Up" : "Login"}
           </button>

@@ -1,32 +1,54 @@
+import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useError } from "../context/ErrorContext";
+import { XCircle, X } from "lucide-react";
 
 const ErrorDisplay = () => {
   const { errors, clearErrors } = useError();
 
-  if (errors.length === 0) {
-    return null;
-  }
+  // Auto-clear errors after 3 seconds
+  useEffect(() => {
+    if (errors.length > 0) {
+      const timer = setTimeout(() => {
+        clearErrors();
+      }, 3000); // 3 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [errors, clearErrors]);
+
+  if (errors.length === 0) return null;
 
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0 }}
-        className="fixed top-4 right-4 z-50 p-4 w-80 bg-red-100 dark:bg-red-900 border border-red-300 dark:border-red-700 rounded-lg shadow-lg py-8"
+        initial={{ opacity: 0, y: -20, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        className="fixed top-4 right-4 z-50 w-80 max-w-sm rounded-xl shadow-2xl overflow-hidden"
       >
-        <button
-          onClick={clearErrors}
-          className="absolute top-2 right-2 text-red-600 dark:text-red-200 hover:text-red-800"
-        >
-          &times;
-        </button>
-        <ul className="list-disc list-inside text-red-700 dark:text-red-200 text-sm">
-          {errors.map((err, idx) => (
-            <li key={idx}>{err}</li>
-          ))}
-        </ul>
+        <div className="bg-red-500 text-white p-5 pr-12 relative flex items-start space-x-3">
+          <XCircle className="mt-0.5 flex-shrink-0" size={20} />
+          <ul className="list-none m-0 p-0 text-sm font-medium">
+            {errors.map((err, idx) => (
+              <li key={idx} className="mb-1 last:mb-0">{err}</li>
+            ))}
+          </ul>
+          <button
+            onClick={clearErrors}
+            className="absolute top-3 right-3 text-red-100 hover:text-white transition-colors"
+            aria-label="Clear errors"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <motion.div
+          initial={{ width: '100%' }}
+          animate={{ width: 0 }}
+          transition={{ duration: 3, ease: 'linear' }}
+          className="h-1 bg-red-300"
+        />
       </motion.div>
     </AnimatePresence>
   );

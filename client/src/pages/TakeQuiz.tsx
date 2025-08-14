@@ -1,10 +1,13 @@
-import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { useApi } from "../api/api"; // Correctly import the useApi hook
-import { useError } from "../context/ErrorContext"; // Import useError to manage local errors if any
+import { useEffect, useState, useContext} from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
+import { XCircle, Clock } from "lucide-react";
+import { useApi } from "../api/api";
+import { useError } from "../context/ErrorContext";
+import { AuthContext } from "../context/authContext";
+import { useSuccess } from "../context/SuccessContext";
 
+// Define the shape of a question
 type Q = {
   _id?: string;
   question: string;
@@ -12,140 +15,301 @@ type Q = {
   correctIndex: number;
 };
 
+// Define the shape of the quiz data
+type QuizData = {
+  title: string;
+  questions: Q[];
+};
+
+// Helper function to format time from seconds to MM:SS
+const formatTime = (seconds: number) => {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+};
+
 export default function TakeQuiz() {
   const { id } = useParams();
-  const api = useApi(); // Use the custom hook to get the API instance
-  const { setErrors } = useError(); // Use the global error context
-
-  const [quiz, setQuiz] = useState<{ title: string; questions: Q[] } | null>(
-    null
-  );
-  const [index, setIndex] = useState(0);
-  const [answers, setAnswers] = useState<number[]>([]);
+  const api = useApi();
+  const { setErrors } = useError();
+  const {addMessage} = useSuccess();
+  const { token } = useContext(AuthContext);
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
 
+  const [quiz, setQuiz] = useState<QuizData | null>(null);
+  const [index, setIndex] = useState(0);
+  const [answers, setAnswers] = useState<(number | null)[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [timeLeft, setTimeLeft] = useState(30); // Per-question time left in seconds
+  const [showModal, setShowModal] = useState(false);
+  const [modalMessage, setModalMessage] = useState("");
+
+  // -------------------------------
+  // Custom Modal for Alerts
+  // -------------------------------
+  const CustomModal = ({ isOpen, onClose, message, showCloseButton = true }: { isOpen: boolean, onClose: () => void, message: string, showCloseButton?: boolean }) => {
+    if (!isOpen) return null;
+    return (
+      <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50">
+        <div className="bg-white p-6 rounded-lg shadow-xl text-center max-w-sm w-full">
+          <p className="text-lg font-semibold text-gray-800 mb-4">{message}</p>
+          {showCloseButton && (
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors duration-200"
+            >
+              OK
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // -------------------------------
+  // Disclaimer modal on initial load
+  // -------------------------------
   useEffect(() => {
-    async function load() {
+    if (!loading) {
+      setModalMessage(
+        "Important: This is a timed quiz. Switching tabs or leaving this page will result in the quiz ending and the page refreshing. Inspecting the page is also disabled."
+      );
+      setShowModal(true);
+    }
+  }, [loading]);
+
+  // -------------------------------
+  // Disable right-click & inspect
+  // -------------------------------
+  useEffect(() => {
+    const handleContextMenu = (e: MouseEvent) => e.preventDefault();
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.key === "F12" ||
+        (e.ctrlKey && e.shiftKey && ["I", "J"].includes(e.key.toUpperCase())) ||
+        (e.ctrlKey && e.key.toUpperCase() === "U")
+      ) {
+        e.preventDefault();
+        setModalMessage("Inspecting is disabled!");
+        setShowModal(true);
+      }
+    };
+    document.addEventListener("contextmenu", handleContextMenu);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("contextmenu", handleContextMenu);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
+  // -------------------------------
+  // Tab-switching protection
+  // -------------------------------
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        setModalMessage("Warning: You left the quiz. The page will now refresh.");
+        setShowModal(true);
+        setTimeout(() => {
+          window.location.reload();
+        }, 3000); // Give user 3 seconds to read the warning before refresh
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
+  // -------------------------------
+  // Load quiz
+  // -------------------------------
+  useEffect(() => {
+    if (!token) return;
+
+    const loadQuiz = async () => {
       setErrors([]);
       try {
-        const res = await api.get(`/quizzes/${id}`);
-        setQuiz(res.data.data || null);
-      } catch (err) {
-        // The global API interceptor handles all errors.
+        const res = await api.get(`/quizzes/${id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const quizData: QuizData = res.data.data;
+        setQuiz(quizData);
+        setAnswers(Array(quizData.questions.length).fill(null));
+      } catch (err: any) {
+        setErrors([err.response?.data?.message || "Failed to load quiz"]);
       } finally {
         setLoading(false);
       }
-    }
-    load();
-  }, [id, api, setErrors]); // Added dependencies to the useEffect hook
+    };
 
-  const containerVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
-  };
+    loadQuiz();
+  }, [id, api, setErrors, token]);
 
-  const optionVariants = {
-    hidden: { opacity: 0, x: -20 },
-    visible: { opacity: 1, x: 0 }
-  };
+  // -------------------------------
+  // Timer logic for each question
+  // -------------------------------
+  useEffect(() => {
+    if (loading || !quiz || showModal) return;
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-screen bg-gray-100 dark:bg-gray-900">
-        <svg className="animate-spin h-12 w-12 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <span className="ml-4 text-2xl font-semibold text-gray-700 dark:text-gray-300">Loading quiz...</span>
-      </div>
-    );
-  }
-
-  if (!quiz || !quiz.questions || quiz.questions.length === 0) {
-    return (
-      <div className="max-w-xl mx-auto text-center py-20 px-4 bg-white dark:bg-gray-800 rounded-3xl shadow-xl transition-colors duration-300">
-        <p className="text-2xl text-red-500 font-bold mb-6">Quiz not found or no questions available.</p>
-        <Link
-          to="/"
-          className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white text-lg font-medium rounded-full shadow-lg hover:bg-blue-700 transition-all duration-300 transform hover:scale-105"
-        >
-          Go Home
-        </Link>
-      </div>
-    );
-  }
-
-  function chooseOption(idx: number) {
-    const copy = [...answers];
-    copy[index] = idx;
-    setAnswers(copy);
-  }
-
-  function next() {
-    // Check if an answer has been selected for the current question
-    if (answers[index] === undefined) {
-      setErrors(["Please select an option before moving on."]);
+    if (timeLeft <= 0) {
+      if (index < quiz.questions.length - 1) {
+        setIndex(i => i + 1);
+        setTimeLeft(30); // Reset timer for next question
+      } else {
+        submitQuiz(answers);
+      }
       return;
     }
 
-    if (quiz && index < quiz.questions.length - 1) {
-      setErrors([]); // Clear errors when moving to the next question
-      setIndex((i) => i + 1);
-    } else {
-      // Submit the quiz to the backend
-      api.post(`/quizzes/${id}/submit`, { answers }).then((res) => {
-        // Now, we navigate to the result page, passing the returned data via state
-        navigate(`/result/${id}`, { state: res.data.data });
-      }).catch(err => {
-        setErrors([err]);
+    const timer = setInterval(() => {
+      setTimeLeft((t) => t - 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [timeLeft, loading, quiz, index, answers, showModal]);
+
+  // Handle quiz submission
+  const submitQuiz = async (finalAnswers: (number | null)[] = answers) => {
+    try {
+      const res = await api.post(
+        `/quizzes/${id}/submit`,
+        { answers: finalAnswers },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      navigate(`/result/${id}`, {
+        state: {
+          score: res.data.score,
+          total: res.data.total,
+          answers: finalAnswers,
+          quiz,
+          details: res.data.details,
+        },
       });
+      addMessage("Quiz Submitted Sucessfully");
+    } catch (err: any) {
+      setErrors([err.response?.data?.message || "Failed to submit quiz"]);
     }
-  }
+  };
+
+  // Move to the next question or submit
+  const next = async () => {
+    if (index < (quiz?.questions.length ?? 0) - 1) {
+      setIndex((i) => i + 1);
+      setTimeLeft(30); // Reset timer for next question
+    } else {
+      await submitQuiz();
+    }
+  };
+
+  // Handle option selection
+  const chooseOption = (idx: number) => {
+    const copy = [...answers];
+    copy[index] = idx;
+    setAnswers(copy);
+  };
+
+  if (loading)
+    return (
+      <div className="flex justify-center items-center h-screen bg-gray-900">
+        <div className="loader ease-linear rounded-full border-4 border-t-4 border-gray-700 h-12 w-12 border-t-red-600 animate-spin"></div>
+        <p className="ml-4 text-xl text-gray-400">Loading quiz...</p>
+      </div>
+    );
+
+  if (!quiz || quiz.questions.length === 0)
+    return (
+      <div className="flex justify-center items-center h-screen bg-gray-900 p-4">
+        <div className="max-w-xl text-center p-8 bg-gray-800 rounded-lg shadow-xl border border-gray-700">
+          <p className="text-2xl text-red-500 font-bold mb-6 flex items-center justify-center gap-2">
+            <XCircle size={24} /> Quiz not found or no questions available
+          </p>
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-red-600 text-white text-lg font-medium rounded-md shadow-lg hover:bg-red-700 transition-all duration-300"
+          >
+            Go Home
+          </Link>
+        </div>
+      </div>
+    );
 
   const q = quiz.questions[index];
 
   return (
-    <motion.div
-      className="max-w-3xl mx-auto p-6"
-      initial="hidden"
-      animate="visible"
-      variants={containerVariants}
-    >
-      <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">{quiz.title}</h2>
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Question {index + 1} of {quiz.questions.length}</p>
-        <p className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-6">
-          {q.question}
-        </p>
-        <div className="space-y-3">
+    <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4 sm:p-6 md:p-8 font-mono text-gray-200">
+      <CustomModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        message={modalMessage}
+        showCloseButton={!modalMessage.includes("Warning")}
+      />
+      <motion.div
+        className="max-w-3xl w-full bg-gray-800 rounded-lg shadow-2xl p-6 sm:p-8 md:p-8 border border-gray-700"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0, transition: { duration: 0.5 } }}
+      >
+        <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-4">
+          <h2 className="text-2xl sm:text-3xl font-bold text-white">{quiz.title}</h2>
+          <div className="flex items-center gap-2 text-red-500 font-semibold text-xl">
+            <Clock size={24} />
+            <p>{formatTime(timeLeft)}</p>
+          </div>
+        </div>
+
+        <div className="mb-8">
+          <p className="text-sm text-gray-400 mb-2">
+            Question <span className="font-bold text-red-500">{index + 1}</span> of <span className="font-bold text-red-500">{quiz.questions.length}</span>
+          </p>
+          <p className="text-lg sm:text-xl font-semibold text-gray-200">{q.question}</p>
+        </div>
+
+        <div className="space-y-4">
           {q.options.map((opt, i) => (
             <motion.button
               key={i}
               onClick={() => chooseOption(i)}
-              className={`w-full text-left p-4 rounded-xl transition-all duration-300 transform hover:scale-[1.02] ${
+              className={`w-full text-left p-4 transition-all duration-200 transform hover:bg-gray-700 border border-gray-700 ${
                 answers[index] === i
-                  ? "bg-blue-600 text-white shadow-md border-2 border-blue-700"
-                  : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600"
+                  ? "bg-red-600 text-white shadow-md border-red-700"
+                  : "bg-gray-800 text-gray-200"
               }`}
-              variants={optionVariants}
-              transition={{ delay: 0.2 + i * 0.1 }}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 + i * 0.05 }}
             >
-              {opt}
+              <div className="flex items-center gap-3">
+                <span
+                  className={`w-6 h-6 flex items-center justify-center font-bold transition-colors duration-300 border-2 border-gray-600 ${
+                    answers[index] === i ? "bg-white text-red-600 border-white" : "bg-gray-700 text-gray-400"
+                  }`}
+                >
+                  {String.fromCharCode(65 + i)}
+                </span>
+                <span className="flex-1 text-base sm:text-lg">{opt}</span>
+              </div>
             </motion.button>
           ))}
         </div>
-        <div className="flex justify-end mt-6">
+
+        <div className="flex justify-end mt-8">
           <motion.button
             onClick={next}
-            className="px-6 py-3 bg-blue-600 text-white text-lg font-bold rounded-full shadow-lg hover:bg-blue-700 transition-all duration-300 transform hover:scale-105"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            className={`px-8 py-3 text-lg font-bold rounded-md shadow-lg transition-all duration-300 transform ${
+              answers[index] === null
+                ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+                : "bg-red-600 text-white hover:bg-red-700"
+            }`}
+            disabled={answers[index] === null}
           >
-            {index < quiz.questions.length - 1 ? "Next" : "Submit"}
+            {index < (quiz?.questions.length ?? 0) - 1 ? "Next Question" : "Submit Quiz"}
           </motion.button>
         </div>
-      </div>
-    </motion.div>
+      </motion.div>
+    </div>
   );
 }

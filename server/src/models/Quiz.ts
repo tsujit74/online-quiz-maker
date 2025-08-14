@@ -18,16 +18,11 @@ const QuestionSchema = new Schema<IQuestion>({
     type: [String],
     required: true,
     validate: {
-      validator: (v: string[]) => v.length === 4, // Must have exactly 4 options
+      validator: (v: string[]) => v.length === 4,
       message: "Each question must have exactly 4 options.",
     },
   },
-  correctIndex: {
-    type: Number,
-    required: true,
-    min: [0, "Correct index must be between 0 and 3"],
-    max: [3, "Correct index must be between 0 and 3"],
-  },
+  correctIndex: { type: Number, required: true, min: 0, max: 3 },
 });
 
 const QuizSchema = new Schema<IQuiz>({
@@ -35,10 +30,7 @@ const QuizSchema = new Schema<IQuiz>({
   questions: {
     type: [QuestionSchema],
     required: true,
-    validate: {
-      validator: (v: IQuestion[]) => v.length > 0,
-      message: "A quiz must have at least one question.",
-    },
+    validate: { validator: (v: IQuestion[]) => v.length > 0, message: "At least one question is required." },
   },
   createdAt: { type: Date, default: Date.now },
 });

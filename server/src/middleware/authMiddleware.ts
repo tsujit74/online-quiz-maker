@@ -1,12 +1,13 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import User from "../models/User";
 
 interface JwtPayload {
   userId: string;
 }
 
-export const authMiddleware = (
-  req: Request & { user?: JwtPayload },
+export const authMiddleware = async (
+  req: Request & { user?: any },
   res: Response,
   next: NextFunction
 ) => {
@@ -16,11 +17,32 @@ export const authMiddleware = (
   }
 
   const token = authHeader.split(" ")[1];
+
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
-    req.user = decoded;
+
+    // Find user by ID from token
+    const user = await User.findById(decoded.userId).select("-password");
+    if (!user) {
+      return res.status(401).json({ message: "Unauthorized: User not found" });
+    }
+
+    req.user = user;
     next();
-  } catch {
+  } catch (err) {
+    console.error("Auth error:", err);
     res.status(401).json({ message: "Unauthorized: Invalid token" });
   }
+};
+
+
+export const adminMiddleware = (
+  req: Request & { user?: any },
+  res: Response,
+  next: NextFunction
+) => {
+  if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+  if (!req.user.isAdmin)
+    return res.status(403).json({ message: "Forbidden: Admins only" });
+  next();
 };

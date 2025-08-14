@@ -1,9 +1,16 @@
 import { createContext, useState, useEffect, type ReactNode } from "react";
 
+interface User {
+  id?: string;
+  name: string;
+  email: string;
+  tests?: any[];
+}
+
 interface AuthContextType {
-  user: string | null;
+  user: User | null;
   token: string | null;
-  login: (token: string, user: string) => void;
+  login: (token: string, user: User) => void;
   logout: () => void;
 }
 
@@ -15,21 +22,47 @@ export const AuthContext = createContext<AuthContextType>({
 });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<string | null>(localStorage.getItem("user"));
-  const [token, setToken] = useState<string | null>(localStorage.getItem("token"));
+  const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    if (token) {
-      localStorage.setItem("token", token);
-      if (user) localStorage.setItem("user", user);
-    }
-  }, [token, user]);
+    try {
+      const storedToken = localStorage.getItem("token");
+      const storedUserStr = localStorage.getItem("user");
 
-  const login = (token: string, user: string) => {
-    setToken(token);
-    setUser(user);
-    localStorage.setItem("token", token);
-    localStorage.setItem("user", user);
+      if (!storedToken || !storedUserStr) {
+        // Nothing in storage — skip
+        return;
+      }
+
+      const parsedUser: User = JSON.parse(storedUserStr);
+
+      if (parsedUser?.name && parsedUser?.email) {
+        setUser(parsedUser);
+        setToken(storedToken);
+      } else {
+        console.warn("User data incomplete in localStorage. Clearing...");
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
+      }
+    } catch (err) {
+      console.warn("Invalid user data in localStorage. Clearing...", err);
+      localStorage.removeItem("user");
+      localStorage.removeItem("token");
+    }
+  }, []);
+
+  const login = (newToken: string, newUser: User) => {
+    if (!newUser?.name || !newUser?.email) {
+      console.error("Attempted to log in with incomplete user data", newUser);
+      return;
+    }
+    setToken(newToken);
+    setUser(newUser);
+
+    // Store safely
+    localStorage.setItem("token", newToken);
+    localStorage.setItem("user", JSON.stringify(newUser));
   };
 
   const logout = () => {

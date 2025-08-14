@@ -1,69 +1,89 @@
-import React, { type JSX } from "react";
-import { Routes, Route, useNavigate } from "react-router-dom"; // Import useNavigate
+import { type JSX, useContext, useState, useEffect } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
 import CreateQuiz from "./pages/CreateQuiz";
 import QuizList from "./pages/QuizList";
 import TakeQuiz from "./pages/TakeQuiz";
 import Result from "./pages/Result";
-import Navbar from "./components/Navbar";
-import Footer from "./components/Footer";
-import { ErrorProvider } from "./context/ErrorContext";
-import ErrorDisplay from "./components/ErrorDisplay";
 import Explore from "./pages/Explore";
 import AuthPage from "./pages/AuthPage";
+import Navbar from "./components/Navbar";
+import Footer from "./components/Footer";
+import ErrorDisplay from "./components/ErrorDisplay";
+import { ErrorProvider } from "./context/ErrorContext";
+import { AuthProvider, AuthContext } from "./context/authContext";
+import UserDashboard from "./pages/UserDashboard";
+import { SuccessProvider } from "./context/SuccessContext";
+import SuccessDisplay from "./components/SucessDisplay";
 
-// Protected Route Wrapper
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
-  const token = localStorage.getItem("token");
-  const navigate = useNavigate(); // Get the navigate function
+  const { token } = useContext(AuthContext);
+  const [loading, setLoading] = useState(true);
 
-  // Use a useEffect hook to handle the redirection
-  React.useEffect(() => {
-    if (!token) {
-      // Redirect using useNavigate, which prevents a full page reload
-      navigate("/auth", { replace: true });
-    }
-  }, [token, navigate]); // Rerun the effect if token or navigate changes
+  useEffect(() => {
+    // Wait until token is loaded from localStorage
+    setLoading(false);
+  }, [token]);
 
-  // Only render the children if the token exists
-  return token ? children : null;
+  if (loading) {
+    return <div className="text-center py-10">Loading...</div>;
+  }
+
+  if (!token) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  return children;
 };
 
 export default function App() {
   return (
-    <ErrorProvider>
-      <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
-        <Navbar />
+    <AuthProvider>
+      <SuccessProvider>
+        <ErrorProvider>
+          <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
+            <Navbar />
 
-        <main className="container mx-auto px-4 flex-1">
-          <ErrorDisplay />
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/auth" element={<AuthPage />} />
-            <Route
-              path="/create"
-              element={
-                <ProtectedRoute>
-                  <CreateQuiz />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/list" element={<QuizList />} />
-            <Route
-              path="/take/:id"
-              element={
-                <ProtectedRoute>
-                  <TakeQuiz />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/result/:id" element={<Result />} />
-            <Route path="/explore" element={<Explore />} />
-          </Routes>
-        </main>
+            <main className="container mx-auto px-4 flex-1">
+              <ErrorDisplay />
+              <SuccessDisplay />
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/auth" element={<AuthPage />} />
+                <Route
+                  path="/create"
+                  element={
+                    <ProtectedRoute>
+                      <CreateQuiz />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/take/:id"
+                  element={
+                    <ProtectedRoute>
+                      <TakeQuiz />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <UserDashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="/list" element={<QuizList />} />
+                <Route path="/result/:id" element={<Result />} />
+                <Route path="/explore" element={<Explore />} />
+              </Routes>
+            </main>
 
-        <Footer />
-      </div>
-    </ErrorProvider>
+            <Footer />
+          </div>
+        </ErrorProvider>
+      </SuccessProvider>
+    </AuthProvider>
   );
 }

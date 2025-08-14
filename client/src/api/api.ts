@@ -4,7 +4,6 @@ import { useError } from "../context/ErrorContext";
 // Base URL from .env or fallback
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000/api";
 
-// Create a single Axios instance (not inside the hook)
 const api = axios.create({
   baseURL: API_BASE,
   headers: {
@@ -25,7 +24,6 @@ api.interceptors.request.use((config) => {
 export const useApi = () => {
   const { setErrors } = useError();
 
-  // Attach ONE response interceptor per app lifecycle
   api.interceptors.response.use(
     (response) => {
       setErrors([]); // clear errors on success
