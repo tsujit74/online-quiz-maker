@@ -70,9 +70,10 @@ export default function QuizList() {
         {/* Header + Search Bar */}
 <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 w-full max-w-4xl mx-auto">
   {/* Title */}
-  <h2 className="text-4xl font-extrabold text-gray-800 dark:text-white">
-    Available Quizzes
-  </h2>
+  <h2 className="text-xl sm:text-3xl md:text-3xl font-extrabold text-gray-800 dark:text-white">
+  Available Quizzes
+</h2>
+
 
   {/* Search Bar */}
   <div className="flex items-center gap-2 border rounded-lg px-3 py-2 bg-white dark:bg-gray-700 shadow-sm flex-1 sm:max-w-xs">

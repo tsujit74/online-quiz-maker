@@ -33,10 +33,10 @@ export default function Footer() {
           <div>
             <h5 className="text-lg font-bold mb-4 text-black">Connect with Us</h5>
             <div className="flex justify-center md:justify-start space-x-6">
-              <a href="#" className="text-gray-400 hover:text-black transition-colors duration-200 transform hover:scale-110">
+              <a href="https://github.com/tsujit74/" target="blank" className="text-gray-400 hover:text-black transition-colors duration-200 transform hover:scale-110">
                 <Github size={24} />
               </a>
-              <a href="#" className="text-gray-400 hover:text-black transition-colors duration-200 transform hover:scale-110">
+              <a href="https://www.linkedin.com/in/sujit-thakur-463b45229/" target="blank" className="text-gray-400 hover:text-black transition-colors duration-200 transform hover:scale-110">
                 <Linkedin size={24} />
               </a>
               <a href="#" className="text-gray-400 hover:text-black transition-colors duration-200 transform hover:scale-110">
@@ -48,7 +48,7 @@ export default function Footer() {
         
         <div className="border-t border-gray-700 pt-6 text-center">
           <p className="text-gray-400 text-sm">
-            &copy; {new Date().getFullYear()} Quizzy. All rights reserved.
+            &copy; {new Date().getFullYear()} Quizzy. All rights reserved By Sujit.
           </p>
         </div>
       </div>

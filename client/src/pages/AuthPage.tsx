@@ -82,14 +82,14 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-1">
       <motion.div
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, type: 'spring', damping: 10, stiffness: 100 }}
-        className="bg-white shadow-2xl rounded-3xl p-10 w-full max-w-md border border-gray-200"
+        className="bg-white-900 rounded-3xl p-10 w-full max-w-md border border-gray-200"
       >
-        <h2 className="text-4xl font-extrabold text-center mb-8 text-gray-900">
+        <h2 className="text-3xl font-extrabold text-center mb-8 text-gray-900">
           {isLogin ? "Welcome Back" : "Join Us"}
         </h2>
 

@@ -2,7 +2,14 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle, XCircle, Home, RotateCcw, LayoutDashboard, Trophy } from "lucide-react";
+import {
+  CheckCircle,
+  XCircle,
+  Home,
+  RotateCcw,
+  LayoutDashboard,
+  Trophy,
+} from "lucide-react";
 import { useApi } from "../api/api";
 
 interface QuestionResult {
@@ -13,6 +20,7 @@ interface QuestionResult {
 }
 
 interface ResultData {
+  title: string;
   total: number;
   score: number;
   details: QuestionResult[];
@@ -43,12 +51,15 @@ export default function Result() {
       setLoading(true);
       try {
         const res = await api.get(`/quizzes/${id}/result`);
-        if (!res.data.success) throw new Error(res.data.message || "Failed to load result");
+        if (!res.data.success)
+          throw new Error(res.data.message || "Failed to load result");
 
         const data = res.data.data;
         setResultData(data);
       } catch (err: any) {
-        setError(err.response?.data?.message || err.message || "Failed to load result");
+        setError(
+          err.response?.data?.message || err.message || "Failed to load result"
+        );
       } finally {
         setLoading(false);
       }
@@ -124,7 +135,9 @@ export default function Result() {
   if (!resultData || error) {
     return (
       <div className="max-w-lg mx-auto text-center py-16 px-4 bg-white rounded-2xl shadow-xl transition-colors duration-300">
-        <p className="text-xl text-red-500 font-bold mb-4">{error || "No result data found."}</p>
+        <p className="text-xl text-red-500 font-bold mb-4">
+          {error || "No result data found."}
+        </p>
         <p className="text-gray-600 mb-6">
           The quiz results could not be loaded.
         </p>
@@ -148,7 +161,8 @@ export default function Result() {
     );
   }
 
-  const { total, score, details } = resultData;
+  const { title, total, score, details } = resultData;
+  console.log("Title", title, " ", total, " ", score, "all result");
   const percentage = total > 0 ? ((score / total) * 100).toFixed(0) : "0";
   const passed = total > 0 && score >= total / 2;
 
@@ -165,11 +179,22 @@ export default function Result() {
   return (
     <>
       <motion.div
-        className="max-w-7xl mx-auto p-6 my-6 font-sans"
+        className="max-w-7xl mx-auto p-4 my-4 font-sans"
         initial="hidden"
         animate="visible"
         variants={containerVariants}
       >
+        <h2
+          className="text-2xl sm:text-4xl font-extrabold mb-8 
+             text-gray-800 dark:text-white leading-snug"
+          style={{ fontFamily: "'Poppins', sans-serif" }}
+        >
+          <span className="text-indigo-600 dark:text-indigo-400">
+            Subject:&nbsp;
+          </span>
+          {title || "Untitled Quiz"}
+        </h2>
+
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Left Sidebar - Score Summary */}
           <div className="lg:w-1/3">
@@ -180,23 +205,30 @@ export default function Result() {
               transition={{ delay: 0.2 }}
             >
               <div className="flex items-center justify-center gap-3 mb-4">
-                  {passed ? (
-                      <Trophy size={48} className="text-yellow-500" />
-                  ) : (
-                      <XCircle size={48} className="text-red-500" />
-                  )}
-                  <h2 className={`text-4xl font-extrabold ${passed ? "text-green-600" : "text-red-600"}`}>
-                      {passed ? "Passed!" : "Failed"}
-                  </h2>
+                {passed ? (
+                  <Trophy size={48} className="text-yellow-500" />
+                ) : (
+                  <XCircle size={48} className="text-red-500" />
+                )}
+                <h2
+                  className={`text-4xl font-extrabold ${
+                    passed ? "text-green-600" : "text-red-600"
+                  }`}
+                >
+                  {passed ? "Passed!" : "Failed"}
+                </h2>
               </div>
-              
-              <h2 className="text-3xl font-extrabold text-gray-800 mb-3">Quiz Results</h2>
+
+              <h2 className="text-3xl font-extrabold text-gray-800 mb-3">
+                Quiz Results
+              </h2>
               <p className="text-xl font-bold text-gray-600 mb-3">
-                You scored{" "}
-                <span className="text-blue-600">{score}</span> out of{" "}
+                You scored <span className="text-blue-600">{score}</span> out of{" "}
                 <span className="text-gray-800">{total}</span>
               </p>
-              <p className="text-5xl font-extrabold text-blue-600 mb-4">{percentage}%</p>
+              <p className="text-5xl font-extrabold text-blue-600 mb-4">
+                {percentage}%
+              </p>
               <div className="w-full bg-gray-200 rounded-full h-3">
                 <div
                   className="bg-blue-500 h-3 rounded-full transition-all duration-500 ease-out"
@@ -269,12 +301,13 @@ export default function Result() {
                           </p>
                           <p
                             className={`text-sm font-medium ${
-                              isCorrect
-                                ? "text-green-600"
-                                : "text-red-600"
+                              isCorrect ? "text-green-600" : "text-red-600"
                             }`}
                           >
-                            Your Answer: {q.yourAnswer !== null ? q.options[q.yourAnswer] : "Not answered"}
+                            Your Answer:{" "}
+                            {q.yourAnswer !== null
+                              ? q.options[q.yourAnswer]
+                              : "Not answered"}
                           </p>
                         </div>
                       </div>
@@ -304,7 +337,7 @@ export default function Result() {
               initial={{ y: -50, scale: 0.9 }}
               animate={{ y: 0, scale: 1 }}
               exit={{ y: -50, scale: 0.9 }}
-              onClick={e => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
             >
               <h3 className="text-xl font-bold text-gray-800 mb-4">Alert</h3>
               <p className="text-gray-600 mb-6">{modalMessage}</p>

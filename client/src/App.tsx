@@ -44,7 +44,7 @@ export default function App() {
           <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
             <Navbar />
 
-            <main className="container mx-auto px-4 flex-1">
+            <main className="container mx-auto px-1 flex-1">
               <ErrorDisplay />
               <SuccessDisplay />
               <Routes>

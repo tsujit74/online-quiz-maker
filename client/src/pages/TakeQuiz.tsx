@@ -1,4 +1,4 @@
-import { useEffect, useState, useContext} from "react";
+import { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { XCircle, Clock } from "lucide-react";
@@ -25,14 +25,16 @@ type QuizData = {
 const formatTime = (seconds: number) => {
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
-  return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+  return `${String(minutes).padStart(2, "0")}:${String(
+    remainingSeconds
+  ).padStart(2, "0")}`;
 };
 
 export default function TakeQuiz() {
   const { id } = useParams();
   const api = useApi();
   const { setErrors } = useError();
-  const {addMessage} = useSuccess();
+  const { addMessage } = useSuccess();
   const { token } = useContext(AuthContext);
   const navigate = useNavigate();
 
@@ -43,11 +45,20 @@ export default function TakeQuiz() {
   const [timeLeft, setTimeLeft] = useState(30); // Per-question time left in seconds
   const [showModal, setShowModal] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
+  const [, setIsDevToolsModal] = useState(false);
 
-  // -------------------------------
   // Custom Modal for Alerts
-  // -------------------------------
-  const CustomModal = ({ isOpen, onClose, message, showCloseButton = true }: { isOpen: boolean, onClose: () => void, message: string, showCloseButton?: boolean }) => {
+  const CustomModal = ({
+    isOpen,
+    onClose,
+    message,
+    showCloseButton = true,
+  }: {
+    isOpen: boolean;
+    onClose: () => void;
+    message: string;
+    showCloseButton?: boolean;
+  }) => {
     if (!isOpen) return null;
     return (
       <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50">
@@ -66,9 +77,7 @@ export default function TakeQuiz() {
     );
   };
 
-  // -------------------------------
   // Disclaimer modal on initial load
-  // -------------------------------
   useEffect(() => {
     if (!loading) {
       setModalMessage(
@@ -78,9 +87,7 @@ export default function TakeQuiz() {
     }
   }, [loading]);
 
-  // -------------------------------
   // Disable right-click & inspect
-  // -------------------------------
   useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => e.preventDefault();
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -101,15 +108,15 @@ export default function TakeQuiz() {
       document.removeEventListener("contextmenu", handleContextMenu);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, []);
+  }, [navigate]);
 
-  // -------------------------------
   // Tab-switching protection
-  // -------------------------------
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
-        setModalMessage("Warning: You left the quiz. The page will now refresh.");
+        setModalMessage(
+          "Warning: You left the quiz. The page will now refresh."
+        );
         setShowModal(true);
         setTimeout(() => {
           window.location.reload();
@@ -124,40 +131,54 @@ export default function TakeQuiz() {
     };
   }, []);
 
-  // -------------------------------
   // Load quiz
-  // -------------------------------
-  useEffect(() => {
-    if (!token) return;
+  // Load quiz
+  const loadQuiz = async () => {
+    setErrors([]);
 
-    const loadQuiz = async () => {
-      setErrors([]);
-      try {
-        const res = await api.get(`/quizzes/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const quizData: QuizData = res.data.data;
-        setQuiz(quizData);
-        setAnswers(Array(quizData.questions.length).fill(null));
-      } catch (err: any) {
-        setErrors([err.response?.data?.message || "Failed to load quiz"]);
-      } finally {
-        setLoading(false);
-      }
+    // DevTools check
+    const isDevToolsOpen = () => {
+      const widthThreshold = window.outerWidth - window.innerWidth > 160;
+      const heightThreshold = window.outerHeight - window.innerHeight > 160;
+      return widthThreshold || heightThreshold;
     };
 
+    if (isDevToolsOpen()) {
+      setModalMessage(
+        "Developer tools detected! Please close them to start the quiz."
+      );
+      setIsDevToolsModal(true);
+      setShowModal(true);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const res = await api.get(`/quizzes/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const quizData: QuizData = res.data.data;
+      setQuiz(quizData);
+      setAnswers(Array(quizData.questions.length).fill(null));
+    } catch (err: any) {
+      setErrors([err.response?.data?.message || "Failed to load quiz"]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!token) return;
     loadQuiz();
   }, [id, api, setErrors, token]);
 
-  // -------------------------------
   // Timer logic for each question
-  // -------------------------------
   useEffect(() => {
     if (loading || !quiz || showModal) return;
 
     if (timeLeft <= 0) {
       if (index < quiz.questions.length - 1) {
-        setIndex(i => i + 1);
+        setIndex((i) => i + 1);
         setTimeLeft(30); // Reset timer for next question
       } else {
         submitQuiz(answers);
@@ -184,6 +205,7 @@ export default function TakeQuiz() {
       navigate(`/result/${id}`, {
         state: {
           score: res.data.score,
+          title: res.data.title,
           total: res.data.total,
           answers: finalAnswers,
           quiz,
@@ -224,16 +246,34 @@ export default function TakeQuiz() {
   if (!quiz || quiz.questions.length === 0)
     return (
       <div className="flex justify-center items-center h-screen bg-gray-900 p-4">
-        <div className="max-w-xl text-center p-8 bg-gray-800 rounded-lg shadow-xl border border-gray-700">
+        <div className="max-w-xl mx-auto text-center p-8 bg-gray-800 rounded-lg shadow-xl border border-gray-700">
+          {/* Error Title */}
           <p className="text-2xl text-red-500 font-bold mb-6 flex items-center justify-center gap-2">
-            <XCircle size={24} /> Quiz not found or no questions available
+            <XCircle size={28} />
+            Your developer tool detected
           </p>
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-red-600 text-white text-lg font-medium rounded-md shadow-lg hover:bg-red-700 transition-all duration-300"
-          >
-            Go Home
-          </Link>
+
+          {/* Description */}
+          <p className="text-gray-300 mb-8">
+            Close the Developer tool to start the quiz. Please try
+            again or go back to the homepage. Quiz Not Found or No Questions Available.
+          </p>
+
+          {/* Buttons */}
+          <div className="flex justify-center gap-4">
+            <Link
+              to="/"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-red-600 text-white text-lg font-medium rounded-md shadow-lg hover:bg-red-700 transition-all duration-300"
+            >
+              Go Home
+            </Link>
+            <button
+              onClick={loadQuiz}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-red-600 text-white text-lg font-medium rounded-md shadow-lg hover:bg-red-700 transition-all duration-300"
+            >
+              Refresh
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -254,7 +294,9 @@ export default function TakeQuiz() {
         animate={{ opacity: 1, y: 0, transition: { duration: 0.5 } }}
       >
         <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-4">
-          <h2 className="text-2xl sm:text-3xl font-bold text-white">{quiz.title}</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold text-white">
+            {quiz.title}
+          </h2>
           <div className="flex items-center gap-2 text-red-500 font-semibold text-xl">
             <Clock size={24} />
             <p>{formatTime(timeLeft)}</p>
@@ -263,9 +305,15 @@ export default function TakeQuiz() {
 
         <div className="mb-8">
           <p className="text-sm text-gray-400 mb-2">
-            Question <span className="font-bold text-red-500">{index + 1}</span> of <span className="font-bold text-red-500">{quiz.questions.length}</span>
+            Question <span className="font-bold text-red-500">{index + 1}</span>{" "}
+            of{" "}
+            <span className="font-bold text-red-500">
+              {quiz.questions.length}
+            </span>
           </p>
-          <p className="text-lg sm:text-xl font-semibold text-gray-200">{q.question}</p>
+          <p className="text-lg sm:text-xl font-semibold text-gray-200">
+            {q.question}
+          </p>
         </div>
 
         <div className="space-y-4">
@@ -285,7 +333,9 @@ export default function TakeQuiz() {
               <div className="flex items-center gap-3">
                 <span
                   className={`w-6 h-6 flex items-center justify-center font-bold transition-colors duration-300 border-2 border-gray-600 ${
-                    answers[index] === i ? "bg-white text-red-600 border-white" : "bg-gray-700 text-gray-400"
+                    answers[index] === i
+                      ? "bg-white text-red-600 border-white"
+                      : "bg-gray-700 text-gray-400"
                   }`}
                 >
                   {String.fromCharCode(65 + i)}
@@ -306,7 +356,9 @@ export default function TakeQuiz() {
             }`}
             disabled={answers[index] === null}
           >
-            {index < (quiz?.questions.length ?? 0) - 1 ? "Next Question" : "Submit Quiz"}
+            {index < (quiz?.questions.length ?? 0) - 1
+              ? "Next Question"
+              : "Submit Quiz"}
           </motion.button>
         </div>
       </motion.div>
