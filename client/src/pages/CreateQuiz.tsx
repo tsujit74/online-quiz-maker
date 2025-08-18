@@ -55,9 +55,13 @@ export default function CreateQuiz() {
     const newErrors: string[] = [];
     if (!title.trim()) newErrors.push("Quiz title is required.");
     questions.forEach((q, i) => {
-      if (!q.question.trim()) newErrors.push(`Question ${i + 1} cannot be empty.`);
+      if (!q.question.trim())
+        newErrors.push(`Question ${i + 1} cannot be empty.`);
       q.options.forEach((opt, j) => {
-        if (!opt.trim()) newErrors.push(`Option ${j + 1} for Question ${i + 1} cannot be empty.`);
+        if (!opt.trim())
+          newErrors.push(
+            `Option ${j + 1} for Question ${i + 1} cannot be empty.`
+          );
       });
     });
     setErrors(newErrors);
@@ -76,17 +80,30 @@ export default function CreateQuiz() {
       addMessage("Quiz Created Successfully");
       setQuizLink(`/take/${quizId}`);
       setTitle("");
-      setQuestions([{ question: "", options: ["", "", "", ""], correctIndex: 0 }]);
+      setQuestions([
+        { question: "", options: ["", "", "", ""], correctIndex: 0 },
+      ]);
     } catch (err: any) {
-      setErrors([err.response?.data?.message || "Something went wrong while creating the quiz."]);
+      setErrors([
+        err.response?.data?.message ||
+          "Something went wrong while creating the quiz.",
+      ]);
     }
   };
 
-  const containerVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.5 } } };
-  const itemVariants = { hidden: { opacity: 0, x: -20 }, visible: { opacity: 1, x: 0, transition: { duration: 0.3 } } };
+  const containerVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
+  };
+  const itemVariants = {
+    hidden: { opacity: 0, x: -20 },
+    visible: { opacity: 1, x: 0, transition: { duration: 0.3 } },
+  };
 
   const fullQuizLink = quizLink ? `${window.location.origin}${quizLink}` : "";
-  const whatsappUrl = encodeURI(`https://api.whatsapp.com/send?text=Take this quiz: ${fullQuizLink}`);
+  const whatsappUrl = encodeURI(
+    `https://api.whatsapp.com/send?text=Take this quiz: ${fullQuizLink}`
+  );
 
   return (
     <motion.div
@@ -187,7 +204,9 @@ export default function CreateQuiz() {
                 }`}
               />
               {submitted && !title.trim() && (
-                <p className="text-sm text-red-500 mt-1">Quiz title is required.</p>
+                <p className="text-sm text-red-500 mt-1">
+                  Quiz title is required.
+                </p>
               )}
 
               {/* Questions */}
@@ -196,14 +215,24 @@ export default function CreateQuiz() {
                   <motion.div
                     key={i}
                     className="p-6 border-2 border-gray-200 dark:border-gray-700 rounded-2xl bg-gray-50 dark:bg-gray-900 shadow-md"
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, x: -80 }}
+                    initial={{ opacity: 0, x: 100 }} // Starts off-screen to the right
+                    animate={{
+                      opacity: 1,
+                      x: 0,
+                      transition: {
+                        type: "spring",
+                        stiffness: 100,
+                        damping: 20,
+                      },
+                    }} // Slides in
+                    exit={{ opacity: 0, x: -100 }} // Slides out to the left
                   >
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
                       <input
                         value={q.question}
-                        onChange={(e) => updateQuestion(i, { question: e.target.value })}
+                        onChange={(e) =>
+                          updateQuestion(i, { question: e.target.value })
+                        }
                         placeholder={`Question ${i + 1}`}
                         className={`w-full text-lg font-semibold p-2 border-b-2 bg-transparent focus:outline-none focus:border-indigo-500 dark:text-white ${
                           submitted && !q.question.trim()
@@ -241,7 +270,9 @@ export default function CreateQuiz() {
                             type="radio"
                             name={`correct-${i}`}
                             checked={q.correctIndex === j}
-                            onChange={() => updateQuestion(i, { correctIndex: j })}
+                            onChange={() =>
+                              updateQuestion(i, { correctIndex: j })
+                            }
                             className="form-radio h-5 w-5 text-indigo-600 border-gray-300 dark:border-gray-600"
                           />
                           <input
