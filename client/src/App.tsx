@@ -15,6 +15,7 @@ import { AuthProvider, AuthContext } from "./context/authContext";
 import UserDashboard from "./pages/UserDashboard";
 import { SuccessProvider } from "./context/SuccessContext";
 import SuccessDisplay from "./components/SucessDisplay";
+import Admin from "./pages/Admin";
 
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const { token } = useContext(AuthContext);
@@ -77,6 +78,7 @@ export default function App() {
                 <Route path="/list" element={<QuizList />} />
                 <Route path="/result/:id" element={<Result />} />
                 <Route path="/explore" element={<Explore />} />
+                <Route path="/admin" element={<Admin/>}/>
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </main>
